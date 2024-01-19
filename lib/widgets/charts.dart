@@ -2,6 +2,7 @@ import 'package:expense_tracker/Styling/custom_font.dart';
 import 'package:expense_tracker/widgets/chart_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:expense_tracker/models/expense_class.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 //import 'package:expense_tracker/Styling/custom_font.dart';
 
 class Charts extends StatelessWidget {
@@ -65,7 +66,7 @@ class Charts extends StatelessWidget {
             height: 20,
             width: double.infinity,
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2,horizontal: 2),
+              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
               child: Row(
                 children: buckets
                     .map(
@@ -97,55 +98,141 @@ class Charts extends StatelessWidget {
   }
 }
 
-class BudgetChart extends StatelessWidget {
-  const BudgetChart({super.key, required this.expenses, this.budget = 2000});
+class BudgetChart extends StatefulWidget {
+  const BudgetChart({super.key, required this.expenses});
   final List<Expense> expenses;
 
+  @override
+  State<BudgetChart> createState() => _BudgetChartState();
+}
+
+class _BudgetChartState extends State<BudgetChart> {
+  int budget = 0;
+  //_BudgetChartState({this.budget = 2000});
   int get totalExpense {
     int total = 0;
-    for (final expense in expenses) {
+    for (final expense in widget.expenses) {
       total += expense.amount;
     }
     return total;
   }
 
-  final int budget;
+  Future<void> saveIntegerValue(int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('BUDGET', value);
+  }
+
+  Future<int> getIntegerValue() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('BUDGET') ?? 0;
+  }
+
+  void getBudget() async {
+    int b = await getIntegerValue();
+    setState(() {
+      budget = b;
+    });
+    print(budget);
+  }
+
+  final _formKey = GlobalKey<FormState>();
+  //int newbudget = 0;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.all(10),
-      width: double.infinity,
-      height: 95,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        gradient: LinearGradient(
-          colors: [
-            Theme.of(context).colorScheme.primary.withOpacity(0.3),
-            Theme.of(context).colorScheme.primary.withOpacity(0.0)
-          ],
-          begin: Alignment.bottomCenter,
-          end: Alignment.topCenter,
+    getBudget();
+    return GestureDetector(
+      onTap: () => showModalBottomSheet(
+        useSafeArea: true,
+        isScrollControlled: true,
+        context: context,
+        builder: (context) => Container(
+          padding: const EdgeInsets.all(20),
+          width: double.infinity,
+          height: 200,
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const CustomFont(data: 'Change Budget'),
+                TextFormField(
+                  keyboardType: TextInputType.number,
+                  initialValue: budget.toString(),
+                  validator: (value) {
+                    if (value == null ||
+                        value.trim().isEmpty ||
+                        int.tryParse(value) == null ||
+                        int.parse(value) < 0) {
+                      return 'Invalid';
+                    }
+                    return null;
+                  },
+                  onSaved: (newValue) async {
+                    setState(() {
+                      budget = int.parse(newValue!);
+                    });
+                    await saveIntegerValue(budget);
+                    print(budget);
+                  },
+                ),
+                const SizedBox(height: 8,),
+                Row(
+                  children: [
+                    const Spacer(),
+                    ElevatedButton(
+                        onPressed: () {
+                          _formKey.currentState!.validate();
+                          _formKey.currentState!.save();
+                          Navigator.pop(context);
+                        },
+                        child: const Text('Save'))
+                  ],
+                )
+              ],
+            ),
+          ),
         ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CustomFont(
-                data: '₹$totalExpense /$budget',
-                size: 18,
-                fweight: FontWeight.bold,
-              ),
-              //SetBudget(budget: budget,),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.all(10),
+        width: double.infinity,
+        height: 125,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          gradient: LinearGradient(
+            colors: [
+              Theme.of(context).colorScheme.primary.withOpacity(0.3),
+              Theme.of(context).colorScheme.primary.withOpacity(0.0)
             ],
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
           ),
-          ChartBarHorizontal(
-              fill: totalExpense > budget ? 1 : totalExpense / budget),
-        ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const CustomFont(
+              data: 'Budget',
+              size: 24,
+              fweight: FontWeight.bold,
+            ),
+            const SizedBox(height: 8,),
+            Row(
+              children: [
+                CustomFont(
+                  data: '₹$totalExpense /$budget',
+                  size: 18,
+                  
+                ),
+              ],
+            ),
+            ChartBarHorizontal(
+                fill: totalExpense > budget ? 1 : totalExpense / budget),
+          ],
+        ),
       ),
     );
   }

@@ -28,7 +28,7 @@ class _NewExpense extends State<NewExpense> {
         firstDate: firstDate,
         lastDate: now);
     setState(() {
-      _selectedDate = pickedDate;
+      _selectedDate = pickedDate ?? now;
     });
   }
 
@@ -54,12 +54,11 @@ class _NewExpense extends State<NewExpense> {
               ));
       return;
     }
-    widget.addNewExpense(Expense(
+    Navigator.pop<Expense>(context, Expense(
         amount: enteredAmount,
         title: _titleController.text,
         date: _selectedDate!,
         category: _selectedCategory));
-    Navigator.pop(context);
   }
 
   @override
